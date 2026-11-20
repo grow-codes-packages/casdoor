@@ -110,7 +110,7 @@ func TestConfigEnv(t *testing.T) {
 	}
 	t.Setenv(EnvPrefix+"URL", "http://casdoor.test:8000")
 	c := got(NewClientFromEnv()).must(t)
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if c.Config().URL != "http://casdoor.test:8000" {
 		t.Fatal(c.Config().URL)
 	}
@@ -242,7 +242,7 @@ func TestInputAndConfigErrors(t *testing.T) {
 	c := newTestClient(t, f.srv.URL, nil)
 	_, err := c.SignIn(ctx, SignInInput{Username: "alice", Password: "nope"})
 	wantCode(t, err, ErrorCodeAuthentication, ReasonInvalidCredentials)
-	var d *CasdoorDetail
+	var d *ErrorDetail
 	if !errors.As(err, &d) || d.CasdoorCode != "wrong-password" || d.Error() == "" || !errors.Is(err, ErrAuthentication) {
 		t.Fatalf("detail %+v", d)
 	}
@@ -371,7 +371,7 @@ func TestAuthorizeURLAndExchange(t *testing.T) {
 	addUser(f, "carol", nil)
 	c := newTestClient(t, f.srv.URL, nil)
 	p := NewPKCE()
-	if p.CodeChallenge != PKCEChallenge(p.CodeVerifier) || p.CodeChallengeMethod != "S256" || RandomState() == RandomState() {
+	if p.CodeChallenge != PKCEChallenge(p.CodeVerifier) || p.CodeChallengeMethod != "S256" || sameState() {
 		t.Fatal("pkce")
 	}
 	raw := got(c.BuildAuthorizeURL(AuthorizeURLInput{RedirectURI: "https://app.test/cb", State: "s1", CodeChallenge: p.CodeChallenge,
@@ -444,7 +444,7 @@ func TestTOTP(t *testing.T) {
 	code := got(TOTPCode(s.Secret, time.Now())).must(t)
 	noErr(t, c.VerifyTOTP(ctx, VerifyTOTPInput{AccessToken: tok.AccessToken, Secret: s.Secret, Code: code, RecoveryCode: "rc-1"}))
 	_, err := c.SignIn(ctx, SignInInput{Username: "erin", Password: "Password-123"})
-	var d *CasdoorDetail
+	var d *ErrorDetail
 	if !IsMFARequired(err) || !errors.As(err, &d) || len(d.MFATypes) != 1 || d.MFATypes[0] != "app" {
 		t.Fatalf("mfa %v", err)
 	}
@@ -672,4 +672,10 @@ func TestHelpers(t *testing.T) {
 	if j.header() != "a=2" {
 		t.Fatal(j.header())
 	}
+}
+
+// sameState reports whether two RandomState calls collide (they must not).
+func sameState() bool {
+	a, b := RandomState(), RandomState()
+	return a == b
 }

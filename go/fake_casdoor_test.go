@@ -422,7 +422,7 @@ func (f *fakeCasdoor) browserCode(t *testing.T, user, password, challenge string
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	var env struct{ Data string }
 	_ = json.NewDecoder(res.Body).Decode(&env)
 	return env.Data

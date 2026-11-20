@@ -11,7 +11,7 @@ import (
 // Client is the Casdoor client: user flows for backends-for-frontends and
 // idempotent admin operations. Every Casdoor {"status":"error"} answer (HTTP
 // 200) and every OAuth error becomes an *Error with the canonical code and a
-// *CasdoorDetail cause (ReasonOf). It is safe for concurrent use.
+// *ErrorDetail cause (ReasonOf). It is safe for concurrent use.
 type Client struct {
 	cfg       Config
 	transport *httpTransport
