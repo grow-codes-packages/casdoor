@@ -39,7 +39,7 @@ func (c *Client) checkVerified(op string, t *TokenSet) (*TokenSet, error) {
 	}
 	if v == false {
 		return nil, casdoorError(ErrorCodePermissionDenied, op+": the e-mail address is not verified",
-			&CasdoorDetail{Reason: ReasonEmailNotVerified}, 0)
+			&ErrorDetail{Reason: ReasonEmailNotVerified}, 0)
 	}
 	return t, nil
 }
@@ -150,7 +150,7 @@ func (c *Client) SignIn(ctx context.Context, in SignInInput) (*TokenSet, error) 
 				}
 			}
 			return nil, casdoorError(ErrorCodeAuthentication, op+": a second factor is required",
-				&CasdoorDetail{Reason: ReasonMFARequired, MFATypes: types}, 0)
+				&ErrorDetail{Reason: ReasonMFARequired, MFATypes: types}, 0)
 		}
 		mfa["application"], mfa["organization"], mfa["type"] = app, org, "code"
 		env, err = c.api.call(ctx, apiCall{op: op, method: http.MethodPost, path: "/api/login", query: q, jar: jar, json: mfa})

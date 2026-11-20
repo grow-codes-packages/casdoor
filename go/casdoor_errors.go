@@ -10,8 +10,8 @@ import (
 
 // Reason values attached to normalized Casdoor errors (see ReasonOf).
 const (
-	ReasonEmptyCredential    = "empty_credential"
-	ReasonInvalidCredentials = "invalid_credentials"
+	ReasonEmptyCredential    = "empty_credential"    //nolint:gosec // reason name, not a credential
+	ReasonInvalidCredentials = "invalid_credentials" //nolint:gosec // reason name, not a credential
 	ReasonLoginRequired      = "login_required"
 	ReasonForbidden          = "forbidden"
 	ReasonLocked             = "locked"
@@ -27,21 +27,21 @@ const (
 	ReasonOther              = "other"
 )
 
-// CasdoorDetail is the cause (Error.Err) of every normalized Casdoor error:
+// ErrorDetail is the cause (Error.Err) of every normalized Casdoor error:
 // errors.As(err, &detail) gives the reason, Casdoor's own code and, for
 // ReasonMFARequired, the MFA types offered.
-type CasdoorDetail struct {
+type ErrorDetail struct {
 	Reason      string
 	CasdoorCode string
 	MFATypes    []string
 }
 
 // Error implements error.
-func (d *CasdoorDetail) Error() string { return "casdoor: " + d.Reason }
+func (d *ErrorDetail) Error() string { return "casdoor: " + d.Reason }
 
 // ReasonOf returns the Casdoor reason of err, or "".
 func ReasonOf(err error) string {
-	var d *CasdoorDetail
+	var d *ErrorDetail
 	if errors.As(err, &d) {
 		return d.Reason
 	}
@@ -86,7 +86,7 @@ func cleanText(s string) string {
 	return s
 }
 
-func casdoorError(code ErrorCode, message string, detail *CasdoorDetail, status int) *Error {
+func casdoorError(code ErrorCode, message string, detail *ErrorDetail, status int) *Error {
 	e := NewError(code, message, detail)
 	e.HTTPStatus = status
 	if code == ErrorCodeRateLimited {
@@ -120,7 +120,7 @@ func envelopeError(op, msg, casdoorCode string, status int) *Error {
 	if reason == ReasonEmptyCredential {
 		hint = " (Casdoor sends this for an empty password or code: check that the value was loaded)"
 	}
-	return casdoorError(code, op+": "+text+hint, &CasdoorDetail{Reason: reason, CasdoorCode: casdoorCode}, status)
+	return casdoorError(code, op+": "+text+hint, &ErrorDetail{Reason: reason, CasdoorCode: casdoorCode}, status)
 }
 
 var reMFA = regexp.MustCompile(`(?i)mfa enabled|multi-factor`)
@@ -133,29 +133,29 @@ func oauthError(op, oauthCode, description string, status int) *Error {
 	}
 	msg := op + ": " + cleanText(text)
 	if reMFA.MatchString(description) {
-		return casdoorError(ErrorCodeAuthentication, msg, &CasdoorDetail{Reason: ReasonMFARequired}, status)
+		return casdoorError(ErrorCodeAuthentication, msg, &ErrorDetail{Reason: ReasonMFARequired}, status)
 	}
 	switch oauthCode {
 	case "invalid_grant":
 		for _, r := range errorRules {
 			if r.reason == ReasonLocked && r.re.MatchString(description) {
-				return casdoorError(r.code, msg, &CasdoorDetail{Reason: ReasonLocked}, status)
+				return casdoorError(r.code, msg, &ErrorDetail{Reason: ReasonLocked}, status)
 			}
 		}
-		return casdoorError(ErrorCodeAuthentication, msg, &CasdoorDetail{Reason: ReasonInvalidGrant}, status)
+		return casdoorError(ErrorCodeAuthentication, msg, &ErrorDetail{Reason: ReasonInvalidGrant}, status)
 	case "invalid_client", "unauthorized_client":
-		return casdoorError(ErrorCodeAuthentication, msg, &CasdoorDetail{Reason: ReasonInvalidClient}, status)
+		return casdoorError(ErrorCodeAuthentication, msg, &ErrorDetail{Reason: ReasonInvalidClient}, status)
 	case "unsupported_grant_type", "unsupported_response_type":
-		return casdoorError(ErrorCodeUnsupported, msg, &CasdoorDetail{Reason: ReasonNotEnabled}, status)
+		return casdoorError(ErrorCodeUnsupported, msg, &ErrorDetail{Reason: ReasonNotEnabled}, status)
 	default:
-		return casdoorError(ErrorCodeValidation, msg, &CasdoorDetail{Reason: ReasonOther}, status)
+		return casdoorError(ErrorCodeValidation, msg, &ErrorDetail{Reason: ReasonOther}, status)
 	}
 }
 
 func maskedObjectError(op, kind string) *Error {
 	return casdoorError(ErrorCodePermissionDenied,
 		op+": Casdoor returned the "+kind+" with masked fields; sign in as a global admin (AdminPassword) or use the client credentials of an application",
-		&CasdoorDetail{Reason: ReasonMaskedObject}, 0)
+		&ErrorDetail{Reason: ReasonMaskedObject}, 0)
 }
 
 func validationError(op, msg string) *Error { return NewError(ErrorCodeValidation, op+": "+msg, nil) }

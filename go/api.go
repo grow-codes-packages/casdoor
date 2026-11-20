@@ -103,7 +103,7 @@ func newAPI(cfg Config, t *httpTransport) *api {
 func (a *api) mapHTTPError(res *response, err *Error) *Error {
 	var body map[string]any
 	if json.Unmarshal(res.Body, &body) != nil {
-		return nil
+		return err // not JSON: keep the canonical error
 	}
 	op, _, _ := strings.Cut(err.Message, ":")
 	if code, ok := body["error"].(string); ok && code != "" {

@@ -31,7 +31,7 @@ func itMailCode(t *testing.T, to string, since time.Time) string {
 				}
 			}
 			_ = json.NewDecoder(res.Body).Decode(&found)
-			res.Body.Close()
+			_ = res.Body.Close()
 			for _, m := range found.Messages {
 				if m.Created.After(since.Add(-2 * time.Second)) {
 					r2, err := http.Get(mailpit + "/api/v1/message/" + m.ID)
@@ -40,7 +40,7 @@ func itMailCode(t *testing.T, to string, since time.Time) string {
 					}
 					var full struct{ Text string }
 					_ = json.NewDecoder(r2.Body).Decode(&full)
-					r2.Body.Close()
+					_ = r2.Body.Close()
 					if mm := re.FindStringSubmatch(full.Text); mm != nil {
 						return mm[1]
 					}
@@ -68,7 +68,7 @@ func TestRealCasdoor(t *testing.T) {
 	acfg := common
 	acfg.AdminPassword = NewSecret(os.Getenv("GROW_CASDOOR_IT_ADMIN_PASSWORD"))
 	admin := got(NewClient(acfg)).must(t)
-	defer admin.Close()
+	defer func() { _ = admin.Close() }()
 	if hs := got(admin.Health(ctx)).must(t); !hs.Healthy {
 		t.Fatal(hs)
 	}
@@ -91,7 +91,7 @@ func TestRealCasdoor(t *testing.T) {
 	got(admin.Ping(ctx)).must(t)
 
 	c := got(NewClient(common)).must(t)
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	wantCode(t, second(c.SignIn(ctx, SignInInput{Username: buyer, Password: "Password-123"})), ErrorCodeAuthentication, ReasonInvalidCredentials)
 	tok := got(c.SignIn(ctx, SignInInput{Username: buyer, Password: "Password-456"})).must(t)
 	var roles []string
@@ -142,6 +142,6 @@ func TestRealCasdoor(t *testing.T) {
 	}
 	var env struct{ Data string }
 	_ = json.NewDecoder(res.Body).Decode(&env)
-	res.Body.Close()
+	_ = res.Body.Close()
 	got(c.ExchangeCode(ctx, ExchangeCodeInput{Code: env.Data, CodeVerifier: p.CodeVerifier, RedirectURI: redirect})).must(t)
 }
