@@ -1,0 +1,75 @@
+# The service under test for the Docker integration suites (sdk-kit SPEC §8).
+#
+# OWNED BY THIS REPOSITORY. sdk-kit writes this file once (`sdk-kit new`) and never overwrites it.
+# Replace the placeholder below with the real deployment of Casdoor (image tag = stack catalog,
+# extra containers such as databases are fine). Keep these names, docker/compose.yml relies on them:
+#   service     the endpoint the SDK talks to (GROW_CASDOOR_URL=http://service:8000);
+#               it must have a healthcheck
+#   bootstrap   one-shot job: prepares the service and writes /bootstrap/env, exits 0
+#   bootstrap   (volume) shared, mounted read-only into the test containers
+# Never publish host ports (`ports:`). Ready-made variants for emulators live in sdk-kit/harness
+# (moto, fakeintake, betterstack-stub).
+
+services:
+  # --- SERVICE: Casdoor (stack catalog image) + PostgreSQL + Mailpit -----------------------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: casdoor-test-db   # throwaway test container, never a real secret
+      POSTGRES_DB: casdoor
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d casdoor"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  mailpit:
+    image: axllent/mailpit:v1.29
+    networks:
+      default:
+        aliases: [mailpit]
+
+  service:
+    image: casbin/casdoor:v4.27.1
+    command: ["--createDatabase=true"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      driverName: postgres
+      dataSourceName: "user=postgres password=casdoor-test-db host=postgres port=5432 sslmode=disable dbname=casdoor"
+      dbName: casdoor
+      runmode: prod
+      # built-in/admin password of the throwaway test instance (only applied on the first start)
+      initAdminPassword: casdoor-test-admin-1
+    networks:
+      default:
+        aliases: [casdoor]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8000/api/health | grep -q '\"ok\"'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+      start_interval: 1s
+  # --- end SERVICE ---------------------------------------------------------------------------------
+
+  bootstrap:
+    image: alpine:3.24.4
+    depends_on:
+      service:
+        condition: service_healthy
+    volumes:
+      - bootstrap:/bootstrap
+      - ./bootstrap:/scripts:ro
+      - ./harness:/harness:ro
+    environment:
+      SERVICE_URL: http://service:8000
+      CASDOOR_ADMIN_PASSWORD: casdoor-test-admin-1
+    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
+    restart: "no"
+
+volumes:
+  bootstrap: {}

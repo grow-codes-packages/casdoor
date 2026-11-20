@@ -1,0 +1,13 @@
+# Created by sdk-kit 0.3.0; owned by this repository.
+[package]
+name = "grow-casdoor-example"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.88"
+publish = false
+
+[dependencies]
+grow-casdoor = { path = "../../rust" }
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
+
+[workspace]
