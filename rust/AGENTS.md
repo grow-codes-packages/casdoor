@@ -105,6 +105,12 @@ Every Casdoor `{"status":"error","msg":…}` (HTTP 200) and OAuth error becomes 
 - User names cannot be e-mails (derived from the local part); users sign in with the e-mail.
 - Password sign-in needs `enablePassword` + `signinMethods: Password` (ensureApplication sets both),
   `tokenFormat: JWT` (roles in the token as `[{name}]`), `cert: cert-built-in`.
+- `signUp` sends no phone and no e-mail code (the e-mail is verified afterwards with
+  `sendEmailVerification` + `verifyEmail`). Casdoor's default application form requires `Phone`
+  ("Phone cannot be empty") and its `Email` item rule `None` demands a code ("The verification code
+  has not been sent yet!"), both `VALIDATION`. `ensureApplication` writes a form without `Phone` and
+  with `Email` rule `No verification`; identity setup that edits an existing application must do
+  the same.
 - Sign-in is the code flow + PKCE from the server. With TOTP, Casdoor answers `NextMfa` and the
   passcode goes in a **second** `/api/login` call in the same session without the password.
 - `mfa/setup/enable` does not check the code: `verifyTotp` verifies first, then enables. The
